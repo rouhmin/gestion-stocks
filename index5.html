@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion de Stocks - Méthode LIFO</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --lifo-color: #e67e22;
+            --bg: #fdfcfb;
+        }
+
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 20px; color: var(--primary); }
+        
+        /* Container harmonisé sur index3 */
+        .container { max-width: 1100px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        
+        h1 { text-align: center; border-bottom: 2px solid var(--lifo-color); padding-bottom: 10px; font-size: 24px; }
+
+        /* Formulaire avec placement flex comme index3 */
+        .input-panel {
+            display: flex;
+            gap: 10px;
+            background: #fdf2e9; /* Conservation de votre couleur orange clair */
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        .input-panel div { display: flex; flex-direction: column; gap: 5px; }
+        label { font-size: 12px; font-weight: bold; color: #495057; }
+        input, select { padding: 10px; border: 1px solid #ced4da; border-radius: 5px; width: 180px; }
+
+        .btn-add { 
+            background: #27ae60; color: white; border: none; padding: 10px 25px; border-radius: 5px; cursor: pointer; font-weight: bold; height: 40px;
+        }
+        .btn-add:hover { background: #219150; }
+
+        /* Bouton Reset placé comme index3 */
+        .btn-reset { 
+            background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-top: 15px; font-weight: bold;
+        }
+        .btn-reset:hover { background: #c0392b; }
+
+        /* Tableau */
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+        th, td { border: 1px solid #dfe6e9; padding: 12px; text-align: center; }
+        
+        thead th { background: var(--primary); color: white; }
+        .sub-header th { background: #f8f9fa; color: var(--primary); font-size: 12px; }
+
+        .row-entree { background-color: #f4fbf8; }
+        .row-sortie { background-color: #fef5f5; }
+        .row-stock { font-weight: bold; background-color: #fef9e7; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📉 Valorisation LIFO (Dernier Entré, Premier Sorti)</h1>
+
+    <div class="input-panel">
+        <div>
+            <label>Date</label>
+            <input type="text" id="date" placeholder="ex: 01/03">
+        </div>
+        <div>
+            <label>Type</label>
+            <select id="type">
+                <option value="entree">Entrée</option>
+                <option value="sortie">Sortie</option>
+            </select>
+        </div>
+        <div>
+            <label>Quantité</label>
+            <input type="number" id="q" min="1">
+        </div>
+        <div>
+            <label>PU</label>
+            <input type="number" id="pu" step="0.01">
+        </div>
+        <button class="btn-add" onclick="ajouterMouvement()">+ ajouter</button>
+    </div>
+
+    <table id="lifoTable">
+        <thead>
+            <tr>
+                <th rowspan="2">Date</th>
+                <th colspan="3">Entrées</th>
+                <th colspan="3">Sorties</th>
+                <th colspan="3">Stock Final</th>
+            </tr>
+            <tr class="sub-header">
+                <th>Q</th><th>PU</th><th>Mnt</th>
+                <th>Q</th><th>PU</th><th>Mnt</th>
+                <th>Q</th><th>PU</th><th>Mnt</th>
+            </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+    </table>
+
+    <button class="btn-reset" onclick="reinitialiser()">Réinitialiser tout</button>
+</div>
+
+<script>
+    let pileStock = [];
+
+    document.getElementById('type').addEventListener('change', function() {
+        const puInput = document.getElementById('pu');
+        if (this.value === 'sortie') {
+            puInput.value = '';
+            puInput.disabled = true;
+            puInput.style.background = '#e0e0e0';
+        } else {
+            puInput.disabled = false;
+            puInput.style.background = '';
+        }
+    });
+
+    function cellulesCouches(couches, cssClass) {
+        if (couches.length === 0) return `<td class="${cssClass}"></td><td class="${cssClass}"></td><td class="${cssClass}"></td>`;
+        const qHTML   = couches.map(c => c.q).join('<br>');
+        const puHTML  = couches.map(c => c.pu.toFixed(2)).join('<br>');
+        const mntHTML = couches.map(c => (c.q * c.pu).toFixed(2)).join('<br>');
+        return `<td class="${cssClass}">${qHTML}</td><td class="${cssClass}">${puHTML}</td><td class="${cssClass}">${mntHTML}</td>`;
+    }
+
+    function construireLigne(date, type, qAction, puEntree) {
+        let htmlLigne = `<td>${date}</td>`;
+
+        if (type === 'entree') {
+            pileStock.push({ q: qAction, pu: puEntree });
+            htmlLigne += cellulesCouches([{ q: qAction, pu: puEntree }], 'row-entree');
+            htmlLigne += `<td></td><td></td><td></td>`;
+        } else {
+            let couchesConsommees = [];
+            let qRestante = qAction;
+
+            for (let i = pileStock.length - 1; i >= 0 && qRestante > 0; i--) {
+                let couche = pileStock[i];
+                if (couche.q <= qRestante) {
+                    couchesConsommees.push({ q: couche.q, pu: couche.pu });
+                    qRestante -= couche.q;
+                    pileStock.splice(i, 1);
+                } else {
+                    couchesConsommees.push({ q: qRestante, pu: couche.pu });
+                    couche.q -= qRestante;
+                    qRestante = 0;
+                }
+            }
+            htmlLigne += `<td></td><td></td><td></td>`;
+            htmlLigne += cellulesCouches(couchesConsommees, 'row-sortie');
+        }
+
+        htmlLigne += cellulesCouches(pileStock, 'row-stock');
+        return htmlLigne;
+    }
+
+    function ajouterMouvement() {
+        const date = document.getElementById('date').value;
+        const type = document.getElementById('type').value;
+        const qAction = parseFloat(document.getElementById('q').value);
+        const puEntree = parseFloat(document.getElementById('pu').value);
+
+        if (!date || isNaN(qAction)) return alert("Veuillez saisir la date et la quantité!");
+        if (type === 'sortie' && calculerTotalQ() < qAction) return alert("Stock insuffisant !");
+
+        const htmlLigne = construireLigne(date, type, qAction, puEntree);
+        const tr = document.createElement('tr');
+        tr.innerHTML = htmlLigne;
+        document.getElementById('tbody').appendChild(tr);
+
+        document.getElementById('q').value = "";
+        document.getElementById('pu').value = "";
+        document.getElementById('q').focus();
+    }
+
+    function calculerTotalQ() {
+        return pileStock.reduce((sum, c) => sum + c.q, 0);
+    }
+
+    function reinitialiser() {
+        if(confirm("Voulez-vous vraiment effacer tout le tableau LIFO ?")) {
+            location.reload();
+        }
+    }
+</script>
+
+</body>
+</html>

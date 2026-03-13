@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Budget - Quantités Constantes</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; padding: 20px; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2c3e50; margin-bottom: 40px; }
+        h3 { color: #3498db; border-bottom: 2px solid #3498db; padding-bottom: 5px; margin-top: 30px; }
+
+        /* Grille des consommations */
+        .conso-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
+        .input-box { display: flex; flex-direction: column; }
+        .input-box label { font-size: 13px; font-weight: bold; margin-bottom: 5px; color: #555; }
+        .input-box input { padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; }
+
+        /* Paramètres */
+        .params-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        
+        .btn-calc { background: #27ae60; color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; width: 100%; font-size: 18px; font-weight: bold; transition: 0.3s; margin-top: 10px; }
+        .btn-calc:hover { background: #219150; }
+
+        #results { margin-top: 40px; display: none; }
+        .stats-bar { display: flex; justify-content: space-around; background: #eef2f7; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #d1d9e6; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #dee2e6; padding: 12px; text-align: center; }
+        th { background-color: #34495e; color: white; }
+        .initial-row { background-color: #f1f1f1 !important; font-weight: bold; }
+        .neg-val { color: #e74c3c; font-weight: bold; }
+
+        /* Modale d'erreur personnalisée */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-overlay.active { display: flex; }
+        .modal-box { background: white; border-radius: 14px; padding: 30px 35px; max-width: 480px; width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.25); animation: popIn 0.2s ease; }
+        @keyframes popIn { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .modal-title { font-size: 18px; font-weight: bold; color: #c0392b; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+        .modal-body { font-size: 14px; color: #444; line-height: 1.7; }
+        .modal-body ul { margin: 10px 0 0 15px; padding: 0; }
+        .modal-body ul li { margin-bottom: 6px; }
+        .modal-body li::marker { color: #e74c3c; }
+        .modal-btn { margin-top: 22px; background: #e74c3c; color: white; border: none; padding: 11px 28px; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: bold; float: right; transition: 0.2s; }
+        .modal-btn:hover { background: #c0392b; }
+
+        /* Tableau de synthèse */
+        #synthese { margin-top: 40px; display: none; }
+        #synthese h3 { color: #8e44ad; border-bottom: 2px solid #8e44ad; padding-bottom: 5px; margin-bottom: 15px; }
+        .synthese-wrap { overflow-x: auto; }
+        #synthese table { width: auto; min-width: 100%; border-collapse: collapse; }
+        #synthese th, #synthese td { border: 1px solid #dee2e6; padding: 9px 14px; text-align: center; font-size: 13px; white-space: nowrap; }
+        #synthese thead th { background-color: #6c3483; color: white; }
+        #synthese th.row-label { background-color: #34495e; color: white; text-align: left; min-width: 110px; }
+        #synthese tr:nth-child(1) td { background-color: #f5eef8; font-weight: bold; color: #6c3483; }
+        #synthese tr:nth-child(2) td { background-color: #eafaf1; font-weight: bold; color: #1e8449; }
+        #synthese tr:nth-child(3) td { background-color: #fdf2f2; color: #c0392b; }
+        #synthese tr:nth-child(4) td { background-color: #eaf4fb; color: #1a5276; font-weight: bold; }
+        #synthese td.empty-cell { background-color: #f9f9f9 !important; color: #ccc; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📦 Budget de Commandes à Quantités Constantes</h1>
+
+    <!-- Modale d'erreur -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-box">
+            <div class="modal-title">⚠️ Champs obligatoires manquants</div>
+            <div class="modal-body" id="modalBody"></div>
+            <button class="modal-btn" onclick="fermerModal()">Corriger</button>
+            <div style="clear:both"></div>
+        </div>
+    </div>
+
+    <h3>1. Consommations Mensuelles (kg)</h3>
+    <div class="conso-grid" id="consoInputs"></div>
+
+    <h3>2. Paramètres de Gestion</h3>
+    <div class="params-grid">
+        <div class="input-box">
+            <label>Stock Initial (kg)</label>
+            <input type="number" id="stock_init" placeholder="en Kg">
+        </div>
+        <div class="input-box">
+            <label>Coût de passation (f)</label>
+            <input type="number" id="f_cost" placeholder="KMGA">
+        </div>
+        <div class="input-box">
+            <label>Taux de possession (t %)</label>
+            <input type="number" id="t_rate" placeholder="ex: 10">
+        </div>
+        <div class="input-box">
+            <label>Prix d'achat unitaire</label>
+            <input type="number" id="pu_price" placeholder="KMGA">
+        </div>
+    </div>
+
+    <button class="btn-calc" onclick="calculerTout()">Calculer et Afficher le Tableau</button>
+
+    <div id="results">
+        <div class="stats-bar" id="statsDisplay"></div>
+        <table>
+            <thead>
+                <tr>
+                    <th rowspan="2">Périodes</th>
+                    <th rowspan="2">Consommation</th>
+                    <th rowspan="2">Stock avec rupture év.</th>
+                    <th rowspan="2">Livraison</th>
+                    <th rowspan="2">Stock Modifié</th>
+                    <th colspan="2">Commandes</th>
+                </tr>
+                <tr>
+                    <th>Date</th>
+                    <th>Quantité</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+
+    <div id="synthese">
+        <h3>📊 Tableau de Synthèse</h3>
+        <div class="synthese-wrap">
+            <table id="syntheseTable">
+                <thead id="syntheseHead"></thead>
+                <tbody id="syntheseBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+
+    // Génération des champs de consommation vides
+    const container = document.getElementById('consoInputs');
+    mois.forEach((m) => {
+        container.innerHTML += `
+            <div class="input-box">
+                <label>${m}</label>
+                <input type="number" class="val-conso" placeholder="0">
+            </div>`;
+    });
+
+    function fermerModal() {
+        document.getElementById('modalOverlay').classList.remove('active');
+    }
+
+    function calculerTout() {
+        const inputs = document.querySelectorAll('.val-conso');
+        const consommations = Array.from(inputs).map(inp => parseFloat(inp.value) || 0);
+        
+        const stockInitial = parseFloat(document.getElementById('stock_init').value) || 0;
+        const f = parseFloat(document.getElementById('f_cost').value) || 0;
+        const t = parseFloat(document.getElementById('t_rate').value) || 0;
+        const pu = parseFloat(document.getElementById('pu_price').value) || 0;
+
+        const C_kg = consommations.reduce((a, b) => a + b, 0);
+
+        if (f === 0 || t === 0 || pu === 0 || C_kg === 0) {
+            let items = [];
+            if (C_kg === 0) items.push("Veuillez saisir au moins une <strong>consommation mensuelle</strong> (en kg).");
+            if (pu   === 0) items.push("Veuillez renseigner le <strong>prix d'achat unitaire</strong> (KMGA).");
+            if (f    === 0) items.push("Veuillez renseigner le <strong>coût de passation (f)</strong> (KMGA).");
+            if (t    === 0) items.push("Veuillez renseigner le <strong>taux de possession (t)</strong> en %.");
+            document.getElementById('modalBody').innerHTML =
+                "Merci de compléter les informations suivantes avant de lancer le calcul :"
+                + "<ul>" + items.map(i => `<li>${i}</li>`).join('') + "</ul>";
+            document.getElementById('modalOverlay').classList.add('active');
+            return;
+        }
+        const delaiTotal = 3; 
+
+        // 1. Calcul Wilson
+        const C_quantite = consommations.reduce((a, b) => a + b, 0);
+        const C_valeur = C_quantite * pu;
+        let N = (f > 0 && C_valeur > 0) ? Math.round(Math.sqrt((C_valeur * t) / (200 * f))) : 0;
+        const Qe = (N > 0) ? Math.round(C_quantite / N) : 0;
+
+        // Mise à jour de la barre de stats avec Conso Annuelle
+        document.getElementById('statsDisplay').innerHTML = `
+            <span><strong>Conso. Annuelle :</strong> ${C_quantite} kg</span>
+            <span><strong>Cadence (N) :</strong> ${N}</span>
+            <span><strong>Lot Économique (Qe) :</strong> ${Qe} kg</span>
+        `;
+
+        // 2. Préparation des données (Décembre + 12 mois)
+        let lignes = [{ nom: "31/12", conso: 0, rupture: stockInitial, livraison: 0, stockMod: stockInitial, cmdDate: "-", cmdQte: "-" }];
+        for(let i=0; i<12; i++) {
+            lignes.push({ nom: mois[i], conso: consommations[i], rupture: 0, livraison: 0, stockMod: 0, cmdDate: "-", cmdQte: "-" });
+        }
+
+        // 3. Logique de calcul (Détection des ruptures et placement livraisons)
+        let stockVirtuel = stockInitial;
+        for (let i = 1; i <= 12; i++) {
+            let rupturePrevisonnelle = stockVirtuel - lignes[i].conso;
+            
+            if (rupturePrevisonnelle < 0 && Qe > 0) {
+                // RUPTURE DÉTECTÉE sur le mois i
+                lignes[i].rupture = rupturePrevisonnelle;
+                
+                // Informations de commande affichées sur la ligne de rupture
+                lignes[i].cmdQte = Qe;
+                let idxCmd = (i - 1 - delaiTotal + 12) % 12;
+                lignes[i].cmdDate = "Début " + mois[idxCmd];
+
+                // LIVRAISON AU MOIS PRÉCÉDENT (i-1)
+                lignes[i-1].livraison = Qe;
+                
+                // On met à jour le stock pour continuer la simulation
+                stockVirtuel = stockVirtuel + Qe - lignes[i].conso;
+            } else if (rupturePrevisonnelle === 0 && Qe > 0) {
+                // RUPTURE ÉVENTUELLE = 0 : livraison sur la même ligne, commande 2 mois avant
+                lignes[i].rupture = 0;
+                lignes[i].livraison = Qe;
+                lignes[i].cmdQte = Qe;
+                let idxCmd0 = (i - 1 - 2 + 12) % 12;
+                lignes[i].cmdDate = "Début " + mois[idxCmd0];
+                stockVirtuel = Qe;
+            } else {
+                lignes[i].rupture = rupturePrevisonnelle;
+                stockVirtuel = rupturePrevisonnelle;
+            }
+        }
+
+        // 4. Calcul final des Stocks Modifiés réels
+        let stockCourant = stockInitial;
+        for (let i = 1; i <= 12; i++) {
+            stockCourant = stockCourant - lignes[i].conso + lignes[i].livraison;
+            lignes[i].stockMod = stockCourant;
+        }
+
+        // 5. Rendu du tableau
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = "";
+        lignes.forEach((l, idx) => {
+            if(idx === 0) { // Ligne de stock initial
+                tbody.innerHTML += `
+                    <tr class="initial-row">
+                        <td>${l.nom}</td><td>-</td><td>${l.rupture}</td><td>-</td><td>-</td><td>-</td><td>-</td>
+                    </tr>`;
+            } else {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${l.nom}</td>
+                        <td>${l.conso || '-'}</td>
+                        <td class="${l.rupture < 0 ? 'neg-val' : ''}">${l.rupture}</td>
+                        <td>${l.livraison > 0 ? l.livraison : '-'}</td>
+                        <td>${l.stockMod}</td>
+                        <td>${l.cmdDate}</td>
+                        <td>${l.cmdQte !== '-' ? l.cmdQte : '-'}</td>
+                    </tr>`;
+            }
+        });
+
+        document.getElementById('results').style.display = "block";
+
+        // ── Tableau de synthèse (reproduction exacte du fichier Word) ─────────
+        //
+        // COMMANDES  : pour chaque ligne ayant un cmdDate, extraire le mois cible
+        //              et placer cmdQte sur cette colonne
+        //              ex: ligne fév → cmdDate="Debut nov" → col Novembre = 5650
+        //                  ligne oct → cmdDate="Debut juillet" → col Juillet = 5650
+        //
+        // LIVRAISONS : lignes[i].livraison sur le mois de la ligne i
+        //              ex: ligne janv a livraison=5650 → col Janvier = 5650
+        //
+        // SORTIES    : lignes[i].conso sur le mois de la ligne i (janv → déc)
+        //
+        // STOCKS     : lignes[0].stockMod sur colonne Décembre initiale (avant Janvier)
+        //              puis lignes[i].stockMod sur le mois de chaque ligne i
+        //
+        // COLONNES   : 14 colonnes cycliques démarrant au 1er mois extrait d'un cmdDate
+
+        // Helper : extrait le mois depuis "Debut nov", "Debut novembre", "Debut juillet"...
+        function synParseMois(str) {
+            if (!str || str === '-') return null;
+            // Enlever "Début " ou "Debut " 
+            const raw = str.replace(/d[eé]but\s+/i, '').trim().toLowerCase();
+            // Chercher le mois dont le nom commence par le mot extrait (comparaison longue en premier)
+            // Trier par longueur décroissante pour éviter que "jui" matche Juin avant Juillet
+            const sorted = mois.slice().sort((a, b) => b.length - a.length);
+            for (let j = 0; j < sorted.length; j++) {
+                if (sorted[j].toLowerCase().startsWith(raw) || raw.startsWith(sorted[j].toLowerCase().substring(0, 4))) {
+                    return sorted[j];
+                }
+            }
+            // Fallback : comparaison sur 3 caractères mais Juillet prioritaire sur Juin
+            for (let j = 0; j < sorted.length; j++) {
+                if (sorted[j].toLowerCase().substring(0, 3) === raw.substring(0, 3)) return sorted[j];
+            }
+            return null;
+        }
+
+        // Construire les 4 maps
+        const synCmd  = {}; // mois cible → qté
+        const synLiv  = {}; // mois ligne → livraison
+        const synSort = {}; // mois ligne → conso
+        const synStk  = {}; // mois ligne → stockMod
+
+        for (let i = 1; i <= 12; i++) {
+            const l = lignes[i];
+            if (l.livraison > 0)    synLiv[l.nom]  = l.livraison;
+            if (l.conso > 0)        synSort[l.nom] = l.conso;
+            synStk[l.nom] = l.stockMod;
+
+            // Commande : extraire le mois cible du cmdDate
+            if (l.cmdDate && l.cmdDate !== '-') {
+                const cible = synParseMois(l.cmdDate);
+                if (cible) synCmd[cible] = Qe;
+            }
+        }
+
+        // 1ère colonne = mois du 1er cmdDate trouvé en parcourant les lignes dans l'ordre
+        // ex: ligne fév a cmdDate="Début Novembre" → 1ère colonne = Novembre
+        let synStart = -1;
+        for (let i = 1; i <= 12; i++) {
+            if (lignes[i].cmdDate && lignes[i].cmdDate !== '-') {
+                const premierMois = synParseMois(lignes[i].cmdDate);
+                if (premierMois) { synStart = mois.indexOf(premierMois); break; }
+            }
+        }
+        if (synStart < 0) synStart = 0;
+
+        // Colonnes : du 1er mois de commande jusqu'à Décembre (index 11)
+        // Si synStart = 10 (Novembre) → nov, déc = 2 colonnes
+        // Si synStart = 8 (Septembre) → sept, oct, nov, déc = 4 colonnes
+        // + on répète l'année suivante jusqu'au 2e Décembre inclus
+        // En pratique : de synStart jusqu'à Décembre = (12 - synStart) colonnes
+        // puis Janvier→Décembre de l'année suivante = 12 colonnes
+        // Total = (12 - synStart) + 12 colonnes
+        const synCols = [];
+        for (let k = synStart; k < 12; k++) synCols.push(mois[k]);       // ex: nov, déc
+        for (let k = 0; k < 12; k++) synCols.push(mois[k]);              // janv → déc
+
+        // Stocks : Décembre initial = lignes[0].stockMod (colonne Déc avant Janvier)
+        const synJanvIdx   = synCols.indexOf('Janvier');
+        const synDecIdx    = synCols.indexOf('Décembre');
+        const decAvantJanv = synDecIdx >= 0 && (synJanvIdx < 0 || synDecIdx < synJanvIdx);
+
+        // Commandes : 1ère occurrence du mois → afficher, 2ème occurrence → vide
+        // Livraisons, Sorties : colonnes avant Janvier = vides
+        // Stocks : Déc initial = stock de départ, colonnes avant Janvier sinon vides
+        const synRowCmd  = synCols.map((m, k) => {
+            if (synCmd[m] === undefined) return '';
+            return k === synCols.indexOf(m) ? synCmd[m] : ''; // 1ère occurrence seulement
+        });
+        const synRowLiv  = synCols.map((m, k) => k < synJanvIdx ? '' : (synLiv[m]  !== undefined ? synLiv[m]  : ''));
+        const synRowSort = synCols.map((m, k) => k < synJanvIdx ? '' : (synSort[m] !== undefined ? synSort[m] : ''));
+        const synRowStk  = synCols.map((m, k) => {
+            if (decAvantJanv && k === synDecIdx) return lignes[0].stockMod;
+            if (k < synJanvIdx) return '';
+            return synStk[m] !== undefined ? synStk[m] : '';
+        });
+
+        // Rendu
+        document.getElementById('syntheseHead').innerHTML =
+            '<tr><th class="row-label">Période</th>'
+            + synCols.map(m => '<th>' + m + '</th>').join('') + '</tr>';
+
+        const synRows = [
+            { label: 'Commandes',  data: synRowCmd  },
+            { label: 'Livraisons', data: synRowLiv  },
+            { label: 'Sorties',    data: synRowSort },
+            { label: 'Stocks',     data: synRowStk  }
+        ];
+        document.getElementById('syntheseBody').innerHTML = synRows.map(r =>
+            '<tr><th class="row-label">' + r.label + '</th>' +
+            r.data.map(v => v !== '' ? '<td>' + v + '</td>' : '<td class="empty-cell"></td>').join('') +
+            '</tr>'
+        ).join('');
+
+        document.getElementById('synthese').style.display = 'block';
+
+    }
+</script>
+
+</body>
+</html>
