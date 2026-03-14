@@ -49,6 +49,24 @@
         .modal-btn { margin-top: 22px; background: #e74c3c; color: white; border: none; padding: 11px 28px; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: bold; float: right; transition: 0.2s; }
         .modal-btn:hover { background: #c0392b; }
 
+        /* ── Responsive mobile ── */
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            .container { padding: 15px 10px; border-radius: 8px; }
+            h1 { font-size: 18px; margin-bottom: 20px; }
+            h3 { font-size: 15px; }
+            .conso-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+            .params-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+            .input-box input { padding: 9px; font-size: 13px; }
+            .btn-calc { font-size: 15px; padding: 12px; }
+            .stats-bar { flex-direction: column; gap: 6px; padding: 12px; }
+            table { font-size: 11px; }
+            th, td { padding: 6px 4px; }
+            #results, #synthese { overflow-x: auto; }
+            #results table, #synthese table { min-width: 480px; }
+            .synthese-wrap { overflow-x: auto; }
+        }
+
         /* Tableau de synthèse */
         #synthese { margin-top: 40px; display: none; }
         #synthese h3 { color: #8e44ad; border-bottom: 2px solid #8e44ad; padding-bottom: 5px; margin-bottom: 15px; }

@@ -15,6 +15,20 @@
         
         input:disabled { background-color: #dcdcdc; cursor: not-allowed; }
 
+        /* ── Responsive mobile ── */
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            .container { padding: 15px 10px; border-radius: 8px; }
+            h1 { font-size: 18px; }
+            .form-container { flex-direction: column; align-items: stretch; }
+            .form-container input, .form-container select { width: 100% !important; font-size: 14px; }
+            .btn-add { width: 100%; padding: 12px; }
+            .btn-reset { width: 100%; }
+            .container { overflow-x: auto; }
+            table { font-size: 11px; min-width: 520px; }
+            th, td { padding: 6px 4px; }
+        }
+
         button { cursor: pointer; border: none; border-radius: 4px; padding: 10px 15px; transition: 0.3s; font-weight: bold; }
         .btn-add { background: #27ae60; color: white; }
         .btn-add:hover { background: #219150; }

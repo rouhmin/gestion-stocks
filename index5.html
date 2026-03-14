@@ -45,6 +45,21 @@
         }
         .btn-reset:hover { background: #c0392b; }
 
+        /* ── Responsive mobile ── */
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            .container { padding: 15px 10px; border-radius: 8px; }
+            h1 { font-size: 18px; }
+            .input-panel { flex-direction: column; align-items: stretch; }
+            .input-panel div { width: 100%; }
+            .input-panel input, .input-panel select { width: 100% !important; font-size: 14px; }
+            .btn-add { width: 100%; padding: 12px; }
+            .btn-reset { width: 100%; }
+            .container { overflow-x: auto; }
+            table { font-size: 11px; min-width: 520px; }
+            th, td { padding: 6px 4px; }
+        }
+
         /* Tableau */
         table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
         th, td { border: 1px solid #dfe6e9; padding: 12px; text-align: center; }
